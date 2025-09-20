@@ -40,19 +40,54 @@ class AuthController extends Controller
 
     public function login(Request $request)
     {
-        if (!Auth::attempt($request->only('email', 'password'))) {
-            return response()->json(['message' => 'Invalid login details'], 401);
+        try {
+            $credentials = $request->validate([
+                'email' => ['required', 'email'],
+                'password' => ['required'],
+            ]);
+
+            if (!Auth::attempt($credentials)) {
+                return response()->json([
+                    'message' => 'Les identifiants fournis sont incorrects.'
+                ], 401);
+            }
+
+            $user = User::where('email', $request->email)->firstOrFail();
+            
+            // Révoquer tous les tokens existants
+            $user->tokens()->delete();
+            
+            // Créer un nouveau token
+            $token = $user->createToken('auth_token')->plainTextToken;
+            
+            // Créer un cookie sécurisé
+            $cookie = cookie(
+                'auth_token',
+                $token,
+                config('sanctum.expiration', 60 * 24 * 7), // 1 semaine par défaut
+                null,
+                null,
+                config('session.secure', false),  // secure
+                true,  // httpOnly
+                false, // sameSite
+                'Lax'  // sameSite policy
+            );
+            
+            return response()
+                ->json([
+                    'access_token' => $token,
+                    'token_type' => 'Bearer',
+                    'user' => $user
+                ])
+                ->withCookie($cookie);
+                
+        } catch (\Exception $e) {
+            \Log::error('Login error: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Une erreur est survenue lors de la connexion.',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
         }
-
-        $user = User::where('email', $request['email'])->firstOrFail();
-
-        $token = $user->createToken('auth_token')->plainTextToken;
-
-        return response()->json([
-            'access_token' => $token,
-            'token_type' => 'Bearer',
-            'user' => $user
-        ]);
     }
 
     public function logout(Request $request)

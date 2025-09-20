@@ -34,14 +34,18 @@ class QuoteController extends Controller
         }
 
         return DB::transaction(function () use ($request) {
-            $quote = Quote::create([
+            $quoteData = [
                 'numero_devis' => $this->generateQuoteNumber(),
                 'client_id' => $request->client_id,
                 'user_id' => auth()->id(),
                 'date_devis' => $request->date_devis,
                 'date_validite' => $request->date_validite,
-                'tva' => $request->tva ?? 20.00,
-            ]);
+            ];
+            
+            // Set default TVA to 20% if not provided
+            $quoteData['tva'] = $request->input('tva', 20.00);
+            
+            $quote = Quote::create($quoteData);
 
             $this->addProductsToQuote($quote, $request->products);
             $this->calculateQuoteTotals($quote);
@@ -69,11 +73,16 @@ class QuoteController extends Controller
             return response()->json($validator->errors(), 422);
         }
 
-        $quote->update($request->only(['client_id', 'date_devis', 'date_validite', 'statut', 'tva']));
+        // Only update fields that are present in the request
+        $updateData = $request->only(['client_id', 'date_devis', 'date_validite', 'statut']);
         
+        // Only include TVA if it's provided in the request
         if ($request->has('tva')) {
+            $updateData['tva'] = $request->tva;
             $this->calculateQuoteTotals($quote);
         }
+        
+        $quote->update($updateData);
 
         return response()->json($quote->load(['client', 'user', 'details.product']));
     }
@@ -144,20 +153,30 @@ class QuoteController extends Controller
                 'quote_id' => $quote->id,
                 'product_id' => $product->id,
                 'quantite' => $productData['quantite'],
-                'prix_unitaire' => $product->prix_unitaire,
-                'total_ligne' => $productData['quantite'] * $product->prix_unitaire,
+                'prix_unitaire' => $product->prix_vente,
+                'total_ligne' => $productData['quantite'] * $product->prix_vente,
             ]);
         }
     }
 
     private function calculateQuoteTotals(Quote $quote)
     {
+        // Log pour débogage
+        \Log::info('Calcul des totaux pour le devis #' . $quote->id);
+        \Log::info('TVA actuelle: ' . $quote->tva);
+        
         $totalHT = $quote->details()->sum('total_ligne');
+        \Log::info('Total HT calculé: ' . $totalHT);
+        
         $totalTTC = $totalHT * (1 + $quote->tva / 100);
+        \Log::info('Total TTC calculé: ' . $totalTTC);
 
-        $quote->update([
+        $updated = $quote->update([
             'total_ht' => $totalHT,
             'total_ttc' => $totalTTC,
         ]);
+        
+        \Log::info('Mise à jour des totaux: ' . ($updated ? 'succès' : 'échec'));
+        \Log::info('Nouveaux totaux - HT: ' . $quote->total_ht . ', TTC: ' . $quote->total_ttc);
     }
 }

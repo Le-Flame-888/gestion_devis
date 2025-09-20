@@ -7,9 +7,11 @@ use App\Http\Controllers\Api\QuoteController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
+// Routes d'authentification
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
+// Routes protégées par authentification Sanctum
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/user', [AuthController::class, 'user']);

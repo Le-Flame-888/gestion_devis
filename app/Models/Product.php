@@ -11,10 +11,13 @@ class Product extends Model
 
     protected $fillable = [
         'nom',
-        'description',
-        'prix_unitaire',
+        'categorie',
         'unite',
-        'stock',
+    ];
+
+    protected $casts = [
+        'categorie' => 'string',
+        'unite' => 'string',
     ];
 
     public function quoteDetails()

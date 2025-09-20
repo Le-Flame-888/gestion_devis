@@ -18,17 +18,15 @@ class ProductController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'nom' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'prix_unitaire' => 'required|numeric|min:0',
+            'categorie' => 'required|in:Marbre,Carrelage,Autre',
             'unite' => 'required|in:m2,m3',
-            'stock' => 'nullable|integer|min:0',
         ]);
 
         if ($validator->fails()) {
             return response()->json($validator->errors(), 422);
         }
 
-        $product = Product::create($request->all());
+        $product = Product::create($request->only(['nom', 'categorie', 'unite']));
 
         return response()->json($product, 201);
     }
@@ -42,17 +40,15 @@ class ProductController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'nom' => 'sometimes|required|string|max:255',
-            'description' => 'nullable|string',
-            'prix_unitaire' => 'sometimes|required|numeric|min:0',
+            'categorie' => 'sometimes|required|in:Marbre,Carrelage,Autre',
             'unite' => 'sometimes|required|in:m2,m3',
-            'stock' => 'nullable|integer|min:0',
         ]);
 
         if ($validator->fails()) {
             return response()->json($validator->errors(), 422);
         }
 
-        $product->update($request->all());
+        $product->update($request->only(['nom', 'categorie', 'unite']));
 
         return response()->json($product);
     }
